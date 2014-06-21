@@ -2011,13 +2011,15 @@ static bool consume_stock(struct mem_cgroup *memcg)
 {
 	struct memcg_stock_pcp *stock;
 	bool ret = true;
+	int cpu;
 
-	stock = &get_cpu_var(memcg_stock);
+	cpu = get_cpu_light();
+	stock = &per_cpu(memcg_stock, cpu);
 	if (memcg == stock->cached && stock->nr_pages)
 		stock->nr_pages--;
 	else /* need to call res_counter_charge */
 		ret = false;
-	put_cpu_var(memcg_stock);
+	put_cpu_light();
 	return ret;
 }
 
@@ -2056,14 +2058,17 @@ static void drain_local_stock(struct work_struct *dummy)
  */
 static void refill_stock(struct mem_cgroup *memcg, unsigned int nr_pages)
 {
-	struct memcg_stock_pcp *stock = &get_cpu_var(memcg_stock);
+	struct memcg_stock_pcp *stock;
+	int cpu = get_cpu_light();
+
+	stock = &per_cpu(memcg_stock, cpu);
 
 	if (stock->cached != memcg) { /* reset if necessary */
 		drain_stock(stock);
 		stock->cached = memcg;
 	}
 	stock->nr_pages += nr_pages;
-	put_cpu_var(memcg_stock);
+	put_cpu_light();
 }
 
 /*
